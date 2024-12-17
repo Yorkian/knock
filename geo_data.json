@@ -397,5 +397,12 @@
     "country": "尼德兰",
     "admin_area": "林堡",
     "last_updated": "2024-12-17T11:47:31.334266"
+  },
+  "Los Angeles": {
+    "lat": 34.05223846,
+    "lon": -118.24334717,
+    "country": "美国",
+    "admin_area": "CA",
+    "last_updated": "2024-12-17T15:02:33.987394"
   }
 }
