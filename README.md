@@ -40,7 +40,7 @@ pip install flask requests pandas plotly paramiko
 
 4. 配置 Bing Maps API：
    - 在 [Bing Maps Dev Center](https://www.bingmapsportal.com/) 获取 API Key
-   - 将 API Key 填入程序中的 `BING_API_KEY` 变量
+   - 将 API Key 填入web_stats.py程序17行中的 `BING_API_KEY` 变量
 
 5. 运行程序：
 后台程序，持续记录访问数据：
@@ -143,7 +143,7 @@ systemctl status knockweb
 ## 注意事项
 
 1. 地理位置解析：
-   - API 有请求限制，建议合理使用
+   - 未添加MAP API仅可以使用已缓存的地理位置数据
    - 会自动缓存已查询的位置信息
 
 2. 数据文件：
