@@ -473,13 +473,13 @@ HTML_TEMPLATE = """
             <div class="stat-number">{{ stats.unique_ips }}</div>
         </div>
         <div class="stat-card">
-            <h3>攻击城市数量</h3>
+            <h3>尝试城市数量</h3>
             <div class="stat-number">{{ stats.unique_cities }}</div>
         </div>
     </div>
 
     <div class="map-container">
-        <h2>全球攻击分布图</h2>
+        <h2>全球尝试分布图</h2>
         <div class="map-wrapper">
             <div class="map-content">
                 <div id="tooltip" class="tooltip"></div>
@@ -530,7 +530,7 @@ HTML_TEMPLATE = """
     </div>
 
     <div class="trend-container">
-        <h2>24小时攻击趋势</h2>
+        <h2>24小时趋势</h2>
         <div class="trend-chart">
             <div id="trend-tooltip" class="tooltip"></div>
             <div class="chart-wrapper">
@@ -637,7 +637,7 @@ HTML_TEMPLATE = """
                     const hour = bar.getAttribute('data-hour');
                     const count = bar.getAttribute('data-count');
             
-                    trendTooltip.textContent = `${hour}: ${count}次攻击`;
+                    trendTooltip.textContent = `${hour}: ${count}次尝试`;
                     trendTooltip.style.display = 'block';
             
                     // 计算提示框位置

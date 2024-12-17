@@ -16,6 +16,7 @@
 
 ## 安装要求
 
+- 本机22端口可用
 - Python 3.7 或更高版本
 - Flask
 - Requests
@@ -175,6 +176,4 @@ systemctl status knockweb
 
 - 感谢 Bing Maps 提供地理编码服务
 - 感谢 ip-api.com 提供IP信息查询服务
-- 感谢所有贡献者的支持
 
-需要我对某个部分进行补充或修改吗？
