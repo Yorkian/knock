@@ -13,8 +13,8 @@ app.static_folder = 'static'
 
 # 确保static目录存在
 os.makedirs('static', exist_ok=True)
-
-BING_API_KEY = "Ap7Ph8ubijhKv0b9vhpWeRmlxFqEOZXCzeJg1m_jR6aaz6LQCcK4ombxy1Z5bpho"
+#请添加自己的MAP API
+BING_API_KEY = "Ap7Ph"
 
 # 预定义主要城市的坐标
 KNOWN_LOCATIONS = {
