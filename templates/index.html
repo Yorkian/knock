@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>是谁在敲打我窗</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Microsoft YaHei', sans-serif;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            margin: 0;
+            font-size: 2em;
+        }
+        
+        #refresh-btn {
+            padding: 10px 20px;
+            background-color: #4a4a4a;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        #refresh-btn:hover {
+            background-color: #666666;
+        }
+        
+        .map-container {
+            background-color: #2a2a2a;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stats-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .stats-box {
+            background-color: #2a2a2a;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        .stats-title {
+            margin-top: 0;
+            color: #bbbbbb;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .stats-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .stats-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #333;
+        }
+        
+        .stats-item:last-child {
+            border-bottom: none;
+        }
+        
+        .count {
+            color: #00ff00;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>是谁在敲打我窗</h1>
+        <button id="refresh-btn">刷新数据</button>
+    </div>
+    
+    <div class="map-container" id="map-container">
+        <!-- Map will be inserted here -->
+    </div>
+    
+    <div class="stats-container">
+        <div class="stats-box">
+            <h2 class="stats-title">IP地址排行榜</h2>
+            <ul class="stats-list" id="ip-list">
+                <!-- IP stats will be inserted here -->
+            </ul>
+        </div>
+        <div class="stats-box">
+            <h2 class="stats-title">城市排行榜</h2>
+            <ul class="stats-list" id="city-list">
+                <!-- City stats will be inserted here -->
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function updateData() {
+            $.get('/data', function(data) {
+                // Update map
+                $('#map-container').html(data.map_html);
+                
+                // Update IP list
+                let ipHtml = '';
+                data.top_ips.forEach(item => {
+                    ipHtml += `<li class="stats-item">
+                        <span>${item.ip}</span>
+                        <span class="count">${item.count}</span>
+                    </li>`;
+                });
+                $('#ip-list').html(ipHtml);
+                
+                // Update city list
+                let cityHtml = '';
+                data.top_cities.forEach(item => {
+                    cityHtml += `<li class="stats-item">
+                        <span>${item.city}</span>
+                        <span class="count">${item.count}</span>
+                    </li>`;
+                });
+                $('#city-list').html(cityHtml);
+            });
+        }
+
+        // Initial load
+        updateData();
+        
+        // Auto refresh every 30 seconds
+        setInterval(updateData, 30000);
+        
+        // Manual refresh
+        $('#refresh-btn').click(updateData);
+    </script>
+</body>
+</html>
