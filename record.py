@@ -80,6 +80,10 @@ class SSHMonitor(paramiko.ServerInterface):
             self.attempts.append(attempt)
             self._save_attempts()
             print(f"Recorded attempt from {self.client_ip} ({city})")
+
+            # Add 4 second delay before responding
+        print(f"Waiting 4 seconds before responding to {self.client_ip}...")
+        time.sleep(4)
             
         return paramiko.AUTH_FAILED
 
