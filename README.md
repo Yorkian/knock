@@ -46,7 +46,7 @@ pip install flask requests pandas plotly paramiko
 5. 运行程序：
 后台程序，持续记录访问数据：
 ```bash
-python record.py
+python3 record.py
 ```
 Debian用户可在/etc/systemd/system/下建立knock.service文档，持续记录访问数据，内容如下：
 ```bash
@@ -78,7 +78,7 @@ systemctl status knock
 
 前台程序，数据页面展示：
 ```bash
-python web_stats.py
+python3 web_stats.py
 ```
 Debian用户可在/etc/systemd/system/下建立knockweb.service文档，用来数据展示，内容如下：
 ```bash

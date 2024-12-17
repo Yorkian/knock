@@ -13,7 +13,7 @@ app.static_folder = 'static'
 
 # 确保static目录存在
 os.makedirs('static', exist_ok=True)
-#请添加自己的MAP API
+#请在此处填写 Bing Maps API Key，申请是免费的
 BING_API_KEY = ""
 
 # 预定义主要城市的坐标
