@@ -20,7 +20,7 @@
 - Python 3.7 或更高版本
 - Flask
 - Requests
-- 有效的 Bing Maps API Key
+
 
 ## 快速开始
 
@@ -39,9 +39,9 @@ pip install flask requests pandas plotly paramiko
    - 在 `static` 目录下放置世界地图背景图片 `defaultMap.jpg`
    - 确保程序对当前目录有读写运行权限
 
-4. 配置 Bing Maps API：
+~~ 4. 配置 Bing Maps API：
    - 在 [Bing Maps Dev Center](https://www.bingmapsportal.com/) 获取 API Key
-   - 将 API Key 填入web_stats.py程序17行中的 `BING_API_KEY` 变量
+   - 将 API Key 填入web_stats.py程序17行中的 `BING_API_KEY` 变量 ~~
 
 5. 运行程序：
 后台程序，持续记录访问数据：
@@ -139,7 +139,7 @@ systemctl status knockweb
 - 后端：Python Flask
 - 前端：HTML5, CSS3, JavaScript
 - 地图：SVG + 自定义背景图
-- API：Bing Maps Geocoding API
+
 
 ## 注意事项
 
@@ -174,6 +174,5 @@ systemctl status knockweb
 
 ## 致谢
 
-- 感谢 Bing Maps 提供地理编码服务
-- 感谢 ip-api.com 提供IP信息查询服务
+- 感谢 ip-api.com 提供IP信息查询、地理坐标编码服务
 
