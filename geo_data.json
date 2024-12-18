@@ -404,5 +404,19 @@
     "country": "美国",
     "admin_area": "CA",
     "last_updated": "2024-12-17T15:02:33.987394"
+  },
+  "Hefei": {
+    "lat": 31.82052612,
+    "lon": 117.22711182,
+    "country": "中华人民共和国",
+    "admin_area": "安徽省",
+    "last_updated": "2024-12-18T09:43:07.331718"
+  },
+  "North Charleston": {
+    "lat": 32.8788681,
+    "lon": -80.01322937,
+    "country": "美国",
+    "admin_area": "SC",
+    "last_updated": "2024-12-18T09:43:07.426615"
   }
 }
