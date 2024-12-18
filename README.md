@@ -63,8 +63,6 @@ Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 ExecStart=/usr/bin/python3 /root/knock/record.py
 Restart=always
 RestartSec=60
-StandardOutput=append:/var/log/knock.log
-StandardError=append:/var/log/knock.error.log
 
 [Install]
 WantedBy=multi-user.target
@@ -95,8 +93,6 @@ Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 ExecStart=/usr/bin/python3 /root/knock/web_stats.py
 Restart=always
 RestartSec=60
-StandardOutput=append:/var/log/knock.log
-StandardError=append:/var/log/knock.error.log
 
 [Install]
 WantedBy=multi-user.target
