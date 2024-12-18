@@ -61,6 +61,8 @@ WorkingDirectory=/root/knock
 Environment=PYTHONUNBUFFERED=1
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 ExecStart=/usr/bin/python3 /root/knock/record.py
+StandardOutput=null
+StandardError=null
 Restart=always
 RestartSec=60
 
@@ -91,6 +93,8 @@ WorkingDirectory=/root/knock
 Environment=PYTHONUNBUFFERED=1
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 ExecStart=/usr/bin/python3 /root/knock/web_stats.py
+StandardOutput=null
+StandardError=null
 Restart=always
 RestartSec=60
 
