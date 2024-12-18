@@ -39,9 +39,9 @@ pip install flask requests pandas plotly paramiko
    - 在 `static` 目录下放置世界地图背景图片 `defaultMap.jpg`
    - 确保程序对当前目录有读写运行权限
 
-~~ 4. 配置 Bing Maps API：
-   - 在 [Bing Maps Dev Center](https://www.bingmapsportal.com/) 获取 API Key
-   - 将 API Key 填入web_stats.py程序17行中的 `BING_API_KEY` 变量 ~~
+~~ 4. 配置 Bing Maps API：~~
+~~   - 在 [Bing Maps Dev Center](https://www.bingmapsportal.com/) 获取 API Key~~
+~~   - 将 API Key 填入web_stats.py程序17行中的 `BING_API_KEY` 变量 ~~
 
 5. 运行程序：
 后台程序，持续记录访问数据：
