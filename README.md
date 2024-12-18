@@ -39,11 +39,7 @@ pip install flask requests pandas plotly paramiko
    - 在 `static` 目录下放置世界地图背景图片 `defaultMap.jpg`
    - 确保程序对当前目录有读写运行权限
 
-~~ 4. 配置 Bing Maps API：~~
-~~   - 在 [Bing Maps Dev Center](https://www.bingmapsportal.com/) 获取 API Key~~
-~~   - 将 API Key 填入web_stats.py程序17行中的 `BING_API_KEY` 变量 ~~
-
-5. 运行程序：
+4. 运行程序：
 后台程序，持续记录访问数据：
 ```bash
 python3 record.py
@@ -110,7 +106,7 @@ systemctl status knockweb
 用户可以删除ssh_attempts.json这个文件删除演示数据，程序会自动创建记录新的数据。
 
 
-6. 访问网页：
+5. 访问网页：
    - 打开浏览器访问 `http://localhost:5000`
    - 或在服务器上配置反向代理
 
