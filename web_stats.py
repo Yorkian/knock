@@ -589,18 +589,19 @@ HTML_TEMPLATE = """
                         
                         // 修改后的提示框定位逻辑
                         // 修改 mousemove 事件处理函数
+
                     circle.addEventListener('mousemove', (e) => {
                         const rect = svg.getBoundingClientRect();
                         const scale = rect.width / svg.viewBox.baseVal.width;
     
-                        // 计算相对于SVG的坐标
-                        const x = e.clientX - rect.left;
-                        const y = e.clientY - rect.top;
+                        // 获取圆点在页面上的实际位置
+                        const circleX = rect.left + (coords.x * scale);
+                        const circleY = rect.top + (coords.y * scale);
     
                         tooltip.style.display = 'block';
-                        // 根据圆点位置定位提示框
-                        tooltip.style.left = (x + 10) + 'px';  // 向右偏移10px
-                        tooltip.style.top = (y - 5) + 'px';    // 向上偏移5px
+                        // 将 tooltip 定位在圆点右上方
+                        tooltip.style.left = (circleX + radius * scale + 5) + 'px';
+                        tooltip.style.top = (circleY - 5) + 'px';
     
                         let tooltipText = `${point.city}: ${point.count}次攻击`;
                         if (point.country) {
@@ -611,6 +612,7 @@ HTML_TEMPLATE = """
                         }
                         tooltip.textContent = tooltipText;
                     });
+
                         
                         circle.addEventListener('mouseout', () => {
                             tooltip.style.display = 'none';
