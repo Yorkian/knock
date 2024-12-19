@@ -418,5 +418,47 @@
     "country": "美国",
     "admin_area": "SC",
     "last_updated": "2024-12-18T09:43:07.426615"
+  },
+  "Moscow": {
+    "lat": 55.7483,
+    "lon": 37.6171,
+    "country": "Russia",
+    "admin_area": "Moscow",
+    "last_updated": "2024-12-18T22:41:03.446622"
+  },
+  "Hong Kong": {
+    "lat": 22.3193,
+    "lon": 114.169,
+    "country": "Hong Kong",
+    "admin_area": "Kowloon",
+    "last_updated": "2024-12-19T02:11:04.896038"
+  },
+  "Libreville": {
+    "lat": 0.381,
+    "lon": 9.4487,
+    "country": "Gabon",
+    "admin_area": "Estuaire",
+    "last_updated": "2024-12-19T03:12:24.011886"
+  },
+  "Noida": {
+    "lat": 28.58,
+    "lon": 77.3197,
+    "country": "India",
+    "admin_area": "Uttar Pradesh",
+    "last_updated": "2024-12-19T06:11:24.910465"
+  },
+  "Islamabad": {
+    "lat": 33.6844,
+    "lon": 73.0479,
+    "country": "Pakistan",
+    "admin_area": "Islamabad",
+    "last_updated": "2024-12-19T07:48:14.167100"
+  },
+  "Indore": {
+    "lat": 22.717,
+    "lon": 75.8337,
+    "country": "India",
+    "admin_area": "Madhya Pradesh",
+    "last_updated": "2024-12-19T11:22:16.567122"
   }
 }

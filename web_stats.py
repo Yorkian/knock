@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, jsonify
+from flask import Flask, render_template_string, jsonify, request
 from collections import Counter
 import json
 from pathlib import Path
@@ -165,9 +165,14 @@ def load_attempts():
     except (FileNotFoundError, json.JSONDecodeError):
         return []
 
-def get_stats():
+def get_stats(time_range='all'):
     """获取统计数据"""
     attempts = load_attempts()
+    
+    if time_range == '24h':
+        now = datetime.datetime.now()
+        twenty_four_hours_ago = now - timedelta(hours=24)
+        attempts = [attempt for attempt in attempts if datetime.datetime.fromisoformat(attempt['timestamp']) >= twenty_four_hours_ago]
     
     # 基础统计
     ip_counts = Counter()
@@ -223,8 +228,14 @@ def get_stats():
 @app.route('/api/map_data')
 def map_data():
     """提供地图数据API"""
+    time_range = request.args.get('time_range', 'all')
     geo = GeoData()
     attempts = load_attempts()
+    
+    if time_range == '24h':
+        now = datetime.datetime.now()
+        twenty_four_hours_ago = now - timedelta(hours=24)
+        attempts = [attempt for attempt in attempts if datetime.datetime.fromisoformat(attempt['timestamp']) >= twenty_four_hours_ago]
     
     city_counts = Counter()
     for attempt in attempts:
@@ -381,64 +392,6 @@ HTML_TEMPLATE = """
             cursor: pointer;
         }
         .tooltip {
-            position: absolute;
-            padding: 8px;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            border-radius: 4px;
-            font-size: 12px;
-            pointer-events: none;
-            z-index: 1000;
-            display: none;
-            white-space: pre-line;
-        }
-        .trend-container {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin: 20px;
-        }
-        .trend-chart {
-            width: 100%;
-            padding: 20px 0;
-            /* 移除 overflow-x: auto; 因为我们要让内容自适应宽度 */
-        }
-        .chart-wrapper {
-            display: flex;
-            align-items: flex-end;
-            justify-content: space-between;
-            height: 200px;
-            width: 100%;  /* 改为100%，不再使用 min-width */
-            padding: 0 10px;
-        }
-        .bar-wrapper {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-width: 20px;  /* 减小最小宽度，从30px改为20px */
-            margin: 0 1px;    /* 减小边距，从2px改为1px */
-        }
-        .bar {
-            width: 15px;      /* 减小柱子宽度，从20px改为15px */
-            background-color: #4CAF50;
-            border-radius: 2px 2px 0 0;
-            transition: all 0.3s;
-        }
-        .hour-label {
-            margin-top: 5px;
-            font-size: 11px;   /* 稍微减小字体大小 */
-            color: #666;
-            transform: rotate(-45deg);
-            transform-origin: top right;
-            white-space: nowrap;
-        }
-        .trend-container {
-            position: relative;  /* 添加这一行 */
-        }
-
-        .tooltip {
             position: fixed;
             padding: 8px;
             background: rgba(0, 0, 0, 0.8);
@@ -449,18 +402,77 @@ HTML_TEMPLATE = """
             z-index: 1000;
             display: none;
             white-space: pre-line;
-            transform: translate(-50%, -100%);
+            max-width: 200px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
-
+        .trend-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin: 20px;
+            position: relative;
+        }
+        .trend-chart {
+            width: 100%;
+            padding: 20px 0;
+        }
+        .chart-wrapper {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            height: 200px;
+            width: 100%;
+            padding: 0 10px;
+        }
+        .bar-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 20px;
+            margin: 0 1px;
+        }
         .bar {
-            cursor: pointer;  /* 添加这一行 */
+            width: 15px;
+            background-color: #4CAF50;
+            border-radius: 2px 2px 0 0;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .hour-label {
+            margin-top: 5px;
+            font-size: 11px;
+            color: #666;
+            transform: rotate(-45deg);
+            transform-origin: top right;
+            white-space: nowrap;
+        }
+        #loading-indicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 5px;
+            display: none;
+            z-index: 1000;
         }
     </style>
 </head>
 <body>
+    <div id="loading-indicator">正在加载数据...</div>
     <div class="header">
         <h1>是谁在敲打我窗</h1>
-        <button class="refresh-btn" onclick="location.reload()">刷新</button>
+        <div>
+            <select id="time-range">
+                <option value="all">全部</option>
+                <option value="24h">24小时</option>
+            </select>
+            <button class="refresh-btn" onclick="refreshData()">刷新</button>
+        </div>
     </div>
 
     <div class="stats-grid">
@@ -556,26 +568,44 @@ HTML_TEMPLATE = """
     </div>
 
     <script>
+        // 获取当前时间范围
+        function getCurrentTimeRange() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('time_range') || 'all';
+        }
+
+        // 显示加载指示器
+        function showLoading() {
+            document.getElementById('loading-indicator').style.display = 'block';
+        }
+
+        // 隐藏加载指示器
+        function hideLoading() {
+            document.getElementById('loading-indicator').style.display = 'none';
+        }
+
         function normalizeCoordinates(lon, lat) {
             const mapWidth = 360;
             const mapHeight = 180;
-            
-            // 调整经度缩放比例为1.2
             const x = ((parseFloat(lon) * 1.2 + 180) / 360) * mapWidth;
             const y = ((90 - parseFloat(lat)) / 180) * mapHeight;
-            
             return { x, y };
         }
 
+        // 更新地图数据
         function updateMap() {
+            showLoading();
             const tooltip = document.getElementById('tooltip');
             const svg = document.getElementById('world-map');
+            const timeRange = getCurrentTimeRange();
             
-            fetch('/api/map_data')
+            fetch(`/api/map_data?time_range=${timeRange}`)
                 .then(response => response.json())
                 .then(data => {
+                    // 清除现有点
                     document.querySelectorAll('.attack-point').forEach(el => el.remove());
                     
+                    // 添加新的点
                     data.forEach(point => {
                         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                         const coords = normalizeCoordinates(point.lon, point.lat);
@@ -587,32 +617,42 @@ HTML_TEMPLATE = """
                         circle.setAttribute('r', radius);
                         circle.setAttribute('class', 'attack-point');
                         
-                        // 修改后的提示框定位逻辑
-                        // 修改 mousemove 事件处理函数
-
-                    circle.addEventListener('mousemove', (e) => {
-                        const rect = svg.getBoundingClientRect();
-                        const scale = rect.width / svg.viewBox.baseVal.width;
-    
-                        // 获取圆点在页面上的实际位置
-                        const circleX = rect.left + (coords.x * scale);
-                        const circleY = rect.top + (coords.y * scale);
-    
-                        tooltip.style.display = 'block';
-                        // 将 tooltip 定位在圆点右上方
-                        tooltip.style.left = (circleX + radius * scale + 5) + 'px';
-                        tooltip.style.top = (circleY - 5) + 'px';
-    
-                        let tooltipText = `${point.city}: ${point.count}次攻击`;
-                        if (point.country) {
-                            tooltipText += `\n国家/地区: ${point.country}`;
-                        }
-                        if (point.admin_area) {
-                            tooltipText += `\n省/州: ${point.admin_area}`;
-                        }
-                        tooltip.textContent = tooltipText;
-                    });
-
+                        circle.addEventListener('mousemove', (e) => {
+                            const rect = svg.getBoundingClientRect();
+                            const scale = rect.width / svg.viewBox.baseVal.width;
+                            
+                            // 获取圆点在页面上的实际位置
+                            const circleX = rect.left + (coords.x * scale);
+                            const circleY = rect.top + (coords.y * scale);
+                            
+                            tooltip.style.display = 'block';
+                            
+                            // 计算提示框位置
+                            let tooltipX = circleX + (radius * scale) + 10;
+                            let tooltipY = circleY - 10;
+                            
+                            // 检查是否会超出右边界
+                            if (tooltipX + tooltip.offsetWidth > window.innerWidth) {
+                                tooltipX = circleX - tooltip.offsetWidth - 10;
+                            }
+                            
+                            // 检查是否会超出上边界
+                            if (tooltipY < 0) {
+                                tooltipY = circleY + 20;
+                            }
+                            
+                            tooltip.style.left = tooltipX + 'px';
+                            tooltip.style.top = tooltipY + 'px';
+                            
+                            let tooltipText = `${point.city}: ${point.count}次攻击`;
+                            if (point.country) {
+                                tooltipText += `\n国家/地区: ${point.country}`;
+                            }
+                            if (point.admin_area) {
+                                tooltipText += `\n省/州: ${point.admin_area}`;
+                            }
+                            tooltip.textContent = tooltipText;
+                        });
                         
                         circle.addEventListener('mouseout', () => {
                             tooltip.style.display = 'none';
@@ -620,42 +660,65 @@ HTML_TEMPLATE = """
                         
                         svg.appendChild(circle);
                     });
+                    hideLoading();
                 })
                 .catch(error => {
                     console.error('Error updating map:', error);
+                    hideLoading();
                 });
         }
 
-        updateMap();
-        setInterval(updateMap, 30000);
-        window.addEventListener('resize', updateMap);
+        // 刷新所有数据
+        function refreshData() {
+            const timeRange = getCurrentTimeRange();
+            window.location.href = `/?time_range=${timeRange}`;
+        }
 
+        // 初始化页面
         document.addEventListener('DOMContentLoaded', function() {
+            const timeRange = getCurrentTimeRange();
+            document.getElementById('time-range').value = timeRange;
+
+            // 设置时间范围选择器的事件处理
+            document.getElementById('time-range').addEventListener('change', function() {
+                const selectedTimeRange = this.value;
+                window.location.href = `/?time_range=${selectedTimeRange}`;
+            });
+
+            // 设置趋势图工具提示
             const trendTooltip = document.getElementById('trend-tooltip');
             const bars = document.querySelectorAll('.bar');
-    
+            
             bars.forEach(bar => {
                 bar.addEventListener('mousemove', (e) => {
                     const hour = bar.getAttribute('data-hour');
                     const count = bar.getAttribute('data-count');
-            
+                    
                     trendTooltip.textContent = `${hour}: ${count}次尝试`;
                     trendTooltip.style.display = 'block';
-            
-                    // 计算提示框位置
+                    
                     const rect = bar.getBoundingClientRect();
                     const tooltipX = rect.left + (rect.width / 2);
                     const tooltipY = rect.top - 10;
-            
+                    
                     trendTooltip.style.left = tooltipX + 'px';
                     trendTooltip.style.top = tooltipY + 'px';
                 });
-        
+                
                 bar.addEventListener('mouseout', () => {
                     trendTooltip.style.display = 'none';
                 });
             });
+
+            // 初始更新地图
+            updateMap();
         });
+
+        // 定期更新地图
+        setInterval(updateMap, 30000);
+        
+        // 响应窗口大小变化
+        window.addEventListener('resize', updateMap);
     </script>
 
     <div style="text-align: center; margin-top: 20px; color: #666;">
@@ -667,7 +730,8 @@ HTML_TEMPLATE = """
 
 @app.route('/')
 def index():
-    stats = get_stats()
+    time_range = request.args.get('time_range', 'all')
+    stats = get_stats(time_range)
     current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     return render_template_string(HTML_TEMPLATE, stats=stats, current_time=current_time)
 
