@@ -140,7 +140,7 @@ systemctl status knock
 
 ## 开发日志
 
-[Update Log](LOG.md)
+[Update Log](https://github.com/Yorkian/knock/blob/main/UPDATE.md)
 
 ## 作者
 
