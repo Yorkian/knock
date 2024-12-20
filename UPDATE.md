@@ -1,24 +1,36 @@
-# 升级日志
+# CHANGELOG
 
-## Ver. 0.001  #### 20241220
+## [Ver. 0.001] - 2024-12-20
 
-1. 前后端程序合二为一，修改README页面说明
+### Added
 
-2. 增加“国家数量”展示
+- 增加"国家数量"展示功能
 
-3. 上传Docker版本
+- 新增 Docker 版本支持
 
+### Changed
 
-## another commit  #### 20241219
+- 前后端程序整合为单体应用
 
-1. 增加查看24小时/全部选项
-
-
-## second commit  #### 20241218
-
-1. 更改查询逻辑，剥离BING MAP调取，不再需要 API
+- 更新 README 文档说明
 
 
-## first commit  #### 20241217
+## [Unreleased] - 2024-12-19
 
-1. 最小可执行版本上线运行
+### Added
+
+- 新增 24小时/全部数据查看选项切换功能
+
+
+## [Unreleased] - 2024-12-18
+
+### Changed
+
+- 优化查询逻辑，移除 BING MAP API 依赖
+
+
+## [Initial Release] - 2024-12-17
+
+### Added
+
+- 发布最小可执行版本（MVP）
