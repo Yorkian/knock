@@ -16,7 +16,7 @@
 
 ## 安装要求
 
-- 本机22端口可用
+- 22端口可用
 - Python 3.7 或更高版本
 - Flask
 - Requests
@@ -40,9 +40,17 @@ pip install flask requests pandas plotly paramiko
    - 确保程序对当前目录有读写运行权限
 
 4. 运行程序：
-后台程序，持续记录访问数据：
+
+Docker版：
+
 ```bash
-python3 record.py
+docker run -d --name knock -p 5000:5000 -p 22:22 --restart unless-stopped yorkian/knock:latest
+```
+
+Python版：
+
+```bash
+python3 app.py
 ```
 Debian用户可在/etc/systemd/system/下建立knock.service文档，持续记录访问数据，内容如下：
 ```bash
@@ -56,7 +64,7 @@ User=root
 WorkingDirectory=/root/knock
 Environment=PYTHONUNBUFFERED=1
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
-ExecStart=/usr/bin/python3 /root/knock/record.py
+ExecStart=/usr/bin/python3 /root/knock/app.py
 StandardOutput=null
 StandardError=null
 Restart=always
@@ -71,38 +79,6 @@ systemctl enable knock
 systemctl start knock
 systemctl status knock
 ```
-
-前台程序，数据页面展示：
-```bash
-python3 web_stats.py
-```
-Debian用户可在/etc/systemd/system/下建立knockweb.service文档，用来数据展示，内容如下：
-```bash
-[Unit]
-Description=Knock WEB Service
-After=network.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/root/knock
-Environment=PYTHONUNBUFFERED=1
-Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
-ExecStart=/usr/bin/python3 /root/knock/web_stats.py
-StandardOutput=null
-StandardError=null
-Restart=always
-RestartSec=60
-
-[Install]
-WantedBy=multi-user.target
-```
-然后运行如下命令，使其生效并查看状态：
-```bash
-systemctl enable knockweb
-systemctl start knockweb
-systemctl status knockweb
-```
 用户可以删除ssh_attempts.json这个文件删除演示数据，程序会自动创建记录新的数据。
 
 
@@ -114,6 +90,7 @@ systemctl status knockweb
 
 - `ssh_attempts.json`: 存储 SSH 登录尝试记录
 - `geo_data.json`: 缓存城市地理位置信息
+- `city_data.json`: 缓存IP地址对应的城市信息
 - `static/defaultMap.jpg`: 世界地图背景图片
 
 ## 自定义配置
@@ -140,7 +117,7 @@ systemctl status knockweb
 ## 注意事项
 
 1. 地理位置解析：
-   - 未添加MAP API仅可以使用已缓存的地理位置数据
+   - 通过IP-API.com查询位置数据
    - 会自动缓存已查询的位置信息
 
 2. 数据文件：
@@ -161,9 +138,9 @@ systemctl status knockweb
 - 改进数据存储方式
 - 增加数据导出功能
 
-## 许可证
+## 开发日志
 
-[MIT License](LICENSE)
+[Update Log](LOG.md)
 
 ## 作者
 

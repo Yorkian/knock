@@ -1,53 +1,47 @@
-from flask import Flask, render_template_string, jsonify, request
-from collections import Counter
+import socket
+import threading
+import datetime
 import json
 from pathlib import Path
-import datetime
+import paramiko
 import requests
 import time
+from typing import Optional, Dict, Any
+from flask import Flask, render_template_string, jsonify, request
+from collections import Counter
 from datetime import timedelta
 import os
 
+# Flask应用初始化
 app = Flask(__name__)
 app.static_folder = 'static'
 
 # 确保static目录存在
 os.makedirs('static', exist_ok=True)
-#请在此处填写 Bing Maps API Key，申请是免费的
-BING_API_KEY = ""
 
-# 预定义主要城市的坐标
+# 预定义主要城市的坐标和国家信息
 KNOWN_LOCATIONS = {
     "Moscow": {"lat": 55.7558, "lon": 37.6173, "country": "Russia", "admin_area": "Moscow"},
-    "Beijing": {"lat": 39.9042, "lon": 116.4074, "country": "China", "admin_area": "Beijing"},
-    "Shanghai": {"lat": 31.2304, "lon": 121.4737, "country": "China", "admin_area": "Shanghai"},
-    "Hong Kong": {"lat": 22.3193, "lon": 114.1694, "country": "China", "admin_area": "Hong Kong"},
-    "Singapore": {"lat": 1.3521, "lon": 103.8198, "country": "Singapore", "admin_area": "Singapore"},
-    "Tokyo": {"lat": 35.6762, "lon": 139.6503, "country": "Japan", "admin_area": "Tokyo"},
-    "London": {"lat": 51.5074, "lon": -0.1278, "country": "United Kingdom", "admin_area": "London"},
-    "New York": {"lat": 40.7128, "lon": -74.0060, "country": "United States", "admin_area": "New York"},
-    "Paris": {"lat": 48.8566, "lon": 2.3522, "country": "France", "admin_area": "Île-de-France"},
-    "Guangzhou": {"lat": 23.1291, "lon": 113.2644, "country": "China", "admin_area": "Guangdong"},
-    "Shenzhen": {"lat": 22.5429, "lon": 114.0596, "country": "China", "admin_area": "Guangdong"},
-    "Seoul": {"lat": 37.5665, "lon": 126.9780, "country": "South Korea", "admin_area": "Seoul"},
+    "Taichung": {"lat": 24.144, "lon": 120.6844, "country": "China", "admin_area": "Taiwan"},
+    "Taipei": {"lat": 25.0289, "lon": 121.521, "country": "China", "admin_area": "Taiwan"},
+    "New Taipei City": {"lat": 25.062, "lon": 121.457, "country": "China", "admin_area": "Taiwan"},
+    "Kaohsiung": {"lat": 22.6148, "lon": 120.3139, "country": "China", "admin_area": "Taiwan"},
+    "Tainan": {"lat": 22.9908, "lon": 120.2133, "country": "China", "admin_area": "Taiwan"},
+    "Hsinchu": {"lat": 24.8036, "lon": 120.9686, "country": "China", "admin_area": "Taiwan"}, 
+    "Keelung": {"lat": 25.1283, "lon": 121.7419, "country": "China", "admin_area": "Taiwan"},
+    "Chiayi": {"lat": 23.4800, "lon": 120.4491, "country": "China", "admin_area": "Taiwan"},
+    "Changhua": {"lat": 24.0734, "lon": 120.5134, "country": "China", "admin_area": "Taiwan"},
+    "Taoyuan": {"lat": 24.9937, "lon": 121.3010, "country": "China", "admin_area": "Taiwan"},
+    "Pingtung": {"lat": 22.6762, "lon": 120.4929, "country": "China", "admin_area": "Taiwan"},
+    "Yilan": {"lat": 24.7570, "lon": 121.7533, "country": "China", "admin_area": "Taiwan"},
+    "Hualien": {"lat": 23.9910, "lon": 121.6111, "country": "China", "admin_area": "Taiwan"},
+    "Taitung": {"lat": 22.7583, "lon": 121.1444, "country": "China", "admin_area": "Taiwan"},
+    "Miaoli": {"lat": 24.5657, "lon": 120.8214, "country": "China", "admin_area": "Taiwan"},
+    "Nantou": {"lat": 23.9157, "lon": 120.6869, "country": "China", "admin_area": "Taiwan"}
 }
 
-# 国家信息映射
 COUNTRY_INFO = {
-    "Moscow": "Russia",
-    "Beijing": "China",
-    "Shanghai": "China",
-    "Guangzhou": "China",
-    "Shenzhen": "China",
-    "Hong Kong": "China",
-    "Singapore": "Singapore",
-    "Tokyo": "Japan",
-    "Seoul": "South Korea",
-    "Hanoi": "Vietnam",
-    "Bangkok": "Thailand",
-    "London": "United Kingdom",
-    "Paris": "France",
-    "New York": "United States"
+    "Moscow": "Russia"
 }
 
 class GeoData:
@@ -157,6 +151,143 @@ class GeoData:
             print(f"Error getting location for {city}: {e}")
             return None
 
+class SSHMonitor(paramiko.ServerInterface):
+    def __init__(self, host='0.0.0.0', port=22):
+        self.host = host
+        self.port = port
+        self.ssh_log_file = Path('ssh_attempts.json')
+        self.city_data_file = Path('city_data.json')
+        self.geo_data_file = Path('geo_data.json')
+        
+        # 初始化或加载数据文件
+        self.attempts = self._load_json(self.ssh_log_file, [])
+        self.city_data = self._load_json(self.city_data_file, {})
+        self.geo_data = self._load_json(self.geo_data_file, {})
+        
+        # 生成服务器密钥
+        self.key = paramiko.RSAKey.generate(2048)
+
+    def _load_json(self, file_path: Path, default: Any) -> Any:
+        """加载JSON文件，如果文件不存在则返回默认值"""
+        if file_path.exists():
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return default
+
+    def _save_json(self, file_path: Path, data: Any) -> None:
+        """保存数据到JSON文件"""
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+
+    def _get_location_data(self, ip: str) -> Optional[Dict]:
+        """获取IP地址的地理位置信息"""
+        if ip in self.city_data:
+            city = self.city_data[ip]
+            return {"city": city}
+
+        try:
+            url = f"http://ip-api.com/json/{ip}?fields=status,country,regionName,city,lat,lon"
+            response = requests.get(url)
+            data = response.json()
+            
+            if data["status"] != "success":
+                return None
+
+            self.city_data[ip] = data["city"]
+            self._save_json(self.city_data_file, self.city_data)
+
+            if data["city"] not in self.geo_data:
+                self.geo_data[data["city"]] = {
+                    "lat": data["lat"],
+                    "lon": data["lon"],
+                    "country": data["country"],
+                    "admin_area": data["regionName"],
+                    "last_updated": datetime.datetime.now().isoformat()
+                }
+                self._save_json(self.geo_data_file, self.geo_data)
+
+            return {
+                "city": data["city"]
+            }
+
+        except Exception as e:
+            print(f"Error getting location data for IP {ip}: {e}")
+            return None
+
+    def check_auth_password(self, username: str, password: str) -> int:
+        """记录认证尝试并拒绝"""
+        time.sleep(4)
+        
+        location_data = self._get_location_data(self.client_ip)
+        if location_data is None:
+            return paramiko.AUTH_FAILED
+
+        attempt = {
+            "timestamp": datetime.datetime.now().isoformat(),
+            "ip": self.client_ip,
+            "password": password,
+            "city": location_data["city"]
+        }
+        
+        self.attempts.append(attempt)
+        self._save_json(self.ssh_log_file, self.attempts)
+        
+        print(f"记录登录尝试 - IP: {self.client_ip}, 城市: {location_data['city']}")
+        return paramiko.AUTH_FAILED
+
+    def get_allowed_auths(self, username: str) -> str:
+        """允许密码认证"""
+        return 'password'
+
+    def _handle_connection(self, client_socket: socket.socket, address: tuple) -> None:
+        """处理单个连接"""
+        try:
+            self.client_ip = address[0]
+            self.client_port = address[1]
+            
+            transport = paramiko.Transport(client_socket)
+            transport.add_server_key(self.key)
+            transport.start_server(server=self)
+            
+            channel = transport.accept(20)
+            if channel is not None:
+                channel.close()
+
+        except Exception as e:
+            print(f"处理连接时出错: {e}")
+        finally:
+            try:
+                transport.close()
+            except:
+                pass
+            client_socket.close()
+
+    def start(self) -> None:
+        """启动SSH监控服务器"""
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server.bind((self.host, self.port))
+        server.listen(5)
+        
+        print(f"开始监控SSH尝试，监听地址 {self.host}:{self.port}")
+        
+        try:
+            while True:
+                client, address = server.accept()
+                thread = threading.Thread(
+                    target=self._handle_connection,
+                    args=(client, address)
+                )
+                thread.daemon = True
+                thread.start()
+                
+                time.sleep(0.1)
+                
+        except KeyboardInterrupt:
+            print("\n正在关闭监控...")
+        finally:
+            server.close()
+
 def load_attempts():
     """加载SSH尝试记录"""
     try:
@@ -174,14 +305,13 @@ def get_stats(time_range='all'):
         twenty_four_hours_ago = now - timedelta(hours=24)
         attempts = [attempt for attempt in attempts if datetime.datetime.fromisoformat(attempt['timestamp']) >= twenty_four_hours_ago]
     
-    # 基础统计
     ip_counts = Counter()
     city_counts = Counter()
+    country_counts = Counter()  # 新增国家计数器
     hourly_counts = Counter()
     now = datetime.datetime.now()
     twenty_four_hours_ago = now - timedelta(hours=24)
     
-    # IP-城市映射
     ip_city_map = {}
     
     for attempt in attempts:
@@ -189,6 +319,13 @@ def get_stats(time_range='all'):
         city = attempt.get('city', 'Unknown')
         ip_city_map[ip] = city
         
+        # 获取国家信息并计数
+        geo = GeoData()
+        location = geo.get_city_location(city)
+        if location and 'country' in location:
+            country = location['country']
+            country_counts[country] += 1
+            
         try:
             timestamp = datetime.datetime.fromisoformat(attempt['timestamp'])
             if timestamp >= twenty_four_hours_ago:
@@ -200,11 +337,9 @@ def get_stats(time_range='all'):
         ip_counts[ip] += 1
         city_counts[city] += 1
 
-    # 获取前10的IP和城市
     top_ips = [(ip, ip_city_map[ip], count) for ip, count in ip_counts.most_common(10)]
     top_cities = city_counts.most_common(10)
     
-    # 24小时趋势数据
     hours = []
     current_hour = now.replace(minute=0, second=0, microsecond=0)
     for i in range(24):
@@ -222,7 +357,8 @@ def get_stats(time_range='all'):
         'hourly_trend': hours,
         'total_attempts': len(attempts),
         'unique_ips': len(ip_counts),
-        'unique_cities': len(city_counts)
+        'unique_cities': len(city_counts),
+        'unique_countries': len(country_counts)  # 新增返回国家数量
     }
 
 @app.route('/api/map_data')
@@ -261,6 +397,7 @@ def map_data():
     
     return jsonify(map_points)
 
+# HTML模板内容
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
@@ -268,6 +405,7 @@ HTML_TEMPLATE = """
     <title>是谁在敲打我窗</title>
     <meta charset="UTF-8">
     <meta http-equiv="refresh" content="30">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -298,7 +436,7 @@ HTML_TEMPLATE = """
         }
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 20px;
             margin-bottom: 20px;
             padding: 0 20px;
@@ -487,6 +625,10 @@ HTML_TEMPLATE = """
         <div class="stat-card">
             <h3>尝试城市数量</h3>
             <div class="stat-number">{{ stats.unique_cities }}</div>
+        </div>
+        <div class="stat-card">
+            <h3>尝试国家数量</h3>
+            <div class="stat-number">{{ stats.unique_countries }}</div>
         </div>
     </div>
 
@@ -721,8 +863,11 @@ HTML_TEMPLATE = """
         window.addEventListener('resize', updateMap);
     </script>
 
-    <div style="text-align: center; margin-top: 20px; color: #666;">
-        最后更新时间: {{ current_time }}
+    <div style="text-align: center; margin-top: 20px; color: #666; display: flex; justify-content: center; align-items: center; gap: 20px;">
+        <span>最后更新时间: {{ current_time }}</span>
+        <a href="https://github.com/Yorkian/knock" target="_blank" style="color: #666; text-decoration: none; font-size: 24px;">
+            <i class="bi bi-github"></i>
+        </a>
     </div>
 </body>
 </html>
@@ -730,6 +875,7 @@ HTML_TEMPLATE = """
 
 @app.route('/')
 def index():
+    """首页路由"""
     time_range = request.args.get('time_range', 'all')
     stats = get_stats(time_range)
     current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -744,6 +890,26 @@ def init_app():
         
     GeoData()
 
-if __name__ == '__main__':
+def main():
+    """主程序入口"""
+    # 初始化SSH监控器
+    ssh_monitor = SSHMonitor(port=22)
+    
+    # 启动SSH监控器线程
+    monitor_thread = threading.Thread(target=ssh_monitor.start)
+    monitor_thread.daemon = True
+    monitor_thread.start()
+    
+    # 初始化Flask应用
     init_app()
-    app.run(host='0.0.0.0', port=5000)
+    
+    # 启动Web服务器
+    try:
+        app.run(host='0.0.0.0', port=5000)
+    except KeyboardInterrupt:
+        print("\n正在关闭服务...")
+    except Exception as e:
+        print(f"服务器运行出错: {e}")
+
+if __name__ == '__main__':
+    main()
