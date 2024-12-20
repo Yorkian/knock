@@ -24,6 +24,15 @@
 
 ## 快速开始
 
+Docker版：
+
+```bash
+docker run -d --name knock -p 5000:5000 -p 22:22 --restart unless-stopped yorkian/knock:latest
+```
+
+
+Python版：
+
 1. 克隆仓库：
 ```bash
 git clone https://github.com/Yorkian/knock.git
@@ -32,7 +41,7 @@ cd knock
 
 2. 安装依赖：
 ```bash
-pip install flask requests pandas plotly paramiko
+pip install flask requests paramiko
 ```
 
 3. 准备必要文件：
@@ -40,14 +49,6 @@ pip install flask requests pandas plotly paramiko
    - 确保程序对当前目录有读写运行权限
 
 4. 运行程序：
-
-Docker版：
-
-```bash
-docker run -d --name knock -p 5000:5000 -p 22:22 --restart unless-stopped yorkian/knock:latest
-```
-
-Python版：
 
 ```bash
 python3 app.py
