@@ -1,58 +1,184 @@
-# knock
-# 是谁在敲打我窗
+# Who is Knocking at My Window
 
-一个用于监控和可视化 SSH 登录尝试的 Web 应用程序。通过直观的世界地图和统计图表展示攻击来源和趋势。
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.7%2B-blue)](https://www.python.org/)
+[![Flask](https://img.shields.io/badge/Flask-2.0%2B-green)](https://flask.palletsprojects.com/)
 
-![预览图](https://i.imgur.com/qIz8MHg.jpeg)
+A real-time SSH login attempt monitoring and visualization system that provides a web interface to track and analyze SSH brute-force attacks.
 
-## 功能特点
+[English](#english) | [中文](#中文)
 
-- 实时监控 SSH 登录尝试
-- 世界地图可视化攻击来源
-- 24小时攻击趋势图表
-- IP地址和城市排行榜
-- 自动地理位置解析
-- 30秒自动刷新数据
+![Dashboard Preview](https://i.imgur.com/kKl0vAD.jpeg)
 
-## 安装要求
+## English
 
-- 22端口可用
-- Python 3.7 或更高版本
-- Flask
-- Requests
+### Features
+
+- **Real-time Monitoring**: Track SSH login attempts in real-time
+- **Geographic Visualization**: Display attack origins on an interactive world map
+- **Detailed Statistics**: 
+  - Total attempt counts
+  - Unique IP addresses
+  - City and country statistics
+  - 24-hour trend analysis
+- **Top Rankings**:
+  - Most active IP addresses
+  - Most targeted cities
+- **Bilingual Interface**: Support for both English and Chinese
+- **Data Persistence**: All attempt records are stored locally
+- **Auto-refresh**: Dashboard updates every 30 seconds
+
+### Requirements
+
+- Python 3.7+
+- Root privileges (for port 22 access)
+- Required Python packages:
+  ```
+  flask
+  paramiko
+  requests
+  ```
+
+### Installation for Python
+
+1. Clone the repository:
+   ```bash
+    git clone https://github.com/Yorkian/knock.git
+    cd knock
+   ```
+
+2. Install dependencies:
+   ```bash
+   pip install flask requests paramiko
+   ```
+
+3. Prepare the environment:
+   ```bash
+   mkdir static
+   # Place your world map background image as static/defaultMap.jpg
+   ```
+
+4. Run the application:
+   ```bash
+   python3 app.py
+   ```
+
+5. Access the dashboard:
+   ```
+   http://localhost:5000
+   ```
+
+Debian users can create a knock.service document under /etc/systemd/system/ to continuously record access data. The content is as follows:
+```bash
+[Unit]
+Description=Knock Monitor Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/knock
+Environment=PYTHONUNBUFFERED=1
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+ExecStart=/usr/bin/python3 /root/knock/app.py
+StandardOutput=null
+StandardError=null
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target
+```
+Then run the following commands to enable it and check its status:
+```bash
+systemctl enable knock
+systemctl start knock
+systemctl status knock
+```
+Users can delete the ssh_attempts.json file to remove the demo data, and the program will automatically create and record new data.
 
 
-## 快速开始
 
-Docker版：
+### Installation for Docker
 
 ```bash
 docker run -d --name knock -p 5000:5000 -p 22:22 --restart unless-stopped yorkian/knock:latest
 ```
 
 
-Python版：
+### Configuration
+
+- The application listens on port 22 for SSH attempts
+- Web interface runs on port 5000 by default
+- Data is stored in JSON format:
+  - `ssh_attempts.json`: Login attempt records
+  - `geo_data.json`: Geographic location cache
+  - `city_data.json`: City information cache
+
+### License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 中文
+
+### 功能特点
+
+- **实时监控**: 追踪SSH登录尝试
+- **地理可视化**: 在交互式世界地图上显示攻击来源
+- **详细统计**: 
+  - 总尝试次数
+  - 独立IP数量
+  - 城市和国家统计
+  - 24小时趋势分析
+- **排行榜**:
+  - 最活跃IP地址
+  - 最多尝试城市
+- **双语界面**: 支持中文和英文
+- **数据持久化**: 本地存储所有尝试记录
+- **自动刷新**: 仪表板每30秒更新一次
+
+### 系统要求
+
+- Python 3.7+
+- Root权限（用于访问22端口）
+- 所需Python包：
+  ```
+  flask
+  requests
+  paramiko
+  ```
+
+### Python版安装步骤
 
 1. 克隆仓库：
-```bash
-git clone https://github.com/Yorkian/knock.git
-cd knock
-```
+   ```bash
+    git clone https://github.com/Yorkian/knock.git
+    cd knock
+   ```
 
 2. 安装依赖：
-```bash
-pip install flask requests paramiko
-```
+   ```bash
+   pip install flask requests paramiko
+   ```
 
-3. 准备必要文件：
-   - 在 `static` 目录下放置世界地图背景图片 `defaultMap.jpg`
-   - 确保程序对当前目录有读写运行权限
+3. 准备环境：
+   ```bash
+   mkdir static
+   # 将世界地图背景图片放置为 static/defaultMap.jpg
+   ```
 
-4. 运行程序：
+4. 运行应用：
+   ```bash
+   python3 app.py
+   ```
 
-```bash
-python3 app.py
-```
+5. 访问仪表板：
+   ```
+   http://localhost:5000
+   ```
+
 Debian用户可在/etc/systemd/system/下建立knock.service文档，持续记录访问数据，内容如下：
 ```bash
 [Unit]
@@ -82,72 +208,21 @@ systemctl status knock
 ```
 用户可以删除ssh_attempts.json这个文件删除演示数据，程序会自动创建记录新的数据。
 
+### Docker版安装步骤
 
-5. 访问网页：
-   - 打开浏览器访问 `http://localhost:5000`
-   - 或在服务器上配置反向代理
+```bash
+docker run -d --name knock -p 5000:5000 -p 22:22 --restart unless-stopped yorkian/knock:latest
+```
 
-## 数据文件说明
+### 配置说明
 
-- `ssh_attempts.json`: 存储 SSH 登录尝试记录
-- `geo_data.json`: 缓存城市地理位置信息
-- `city_data.json`: 缓存IP地址对应的城市信息
-- `static/defaultMap.jpg`: 世界地图背景图片
+- 应用监听22端口获取SSH尝试
+- Web界面默认运行在5000端口
+- 数据以JSON格式存储：
+  - `ssh_attempts.json`: 登录尝试记录
+  - `geo_data.json`: 地理位置缓存
+  - `city_data.json`: 城市信息缓存
 
-## 自定义配置
+### 开源协议
 
-1. 修改预定义城市位置：
-   - 编辑 `KNOWN_LOCATIONS` 字典
-   - 添加或修改城市的经纬度信息
-
-2. 调整地图显示：
-   - 修改 `normalizeCoordinates` 函数中的缩放比例
-   - 默认经度缩放比例为 1.2
-
-3. 更改更新频率：
-   - 修改 HTML 中的 `meta refresh` 值
-   - 修改 JavaScript 中的 `setInterval` 时间
-
-## 技术栈
-
-- 后端：Python Flask
-- 前端：HTML5, CSS3, JavaScript
-- 地图：SVG + 自定义背景图
-
-
-## 注意事项
-
-1. 地理位置解析：
-   - 通过IP-API.com查询位置数据
-   - 会自动缓存已查询的位置信息
-
-2. 数据文件：
-   - 定期备份 `ssh_attempts.json`
-   - 可以手动编辑 `geo_data.json` 修正位置信息
-   - 所有json文件都可以删除，程序会自动重建。
-
-3. 安全性：
-   - 建议在内网环境使用，多用户同时查看有可能导致CPU使用率飙升
-   - 必要时添加访问控制
-
-## 贡献指南
-
-欢迎提交 Pull Request 或创建 Issue。主要改进方向：
-
-- 添加更多统计维度
-- 优化地图显示效果
-- 改进数据存储方式
-- 增加数据导出功能
-
-## 开发日志
-
-[Update Log](https://github.com/Yorkian/knock/blob/main/UPDATE.md)
-
-## 作者
-
-[York](https://github.com/Yorkian)
-
-## 致谢
-
-- 感谢 ip-api.com 提供IP信息查询、地理坐标编码服务
-
+本项目采用MIT协议 - 详见 [LICENSE](LICENSE) 文件。

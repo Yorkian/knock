@@ -19,6 +19,60 @@ app.static_folder = 'static'
 # 确保static目录存在
 os.makedirs('static', exist_ok=True)
 
+# Language translations
+TRANSLATIONS = {
+    'en': {
+        'title': 'Who is Knocking at My Window',
+        'refresh': 'Refresh',
+        'total_attempts': 'Total Attempts',
+        'unique_ips': 'Unique IPs',
+        'attempt_cities': 'Attempt Cities',
+        'attempt_countries': 'Attempt Countries',
+        'global_distribution': 'Global Distribution',
+        'ip_ranking': 'IP Address Ranking',
+        'city_ranking': 'City Ranking',
+        'hour_trend': '24-Hour Trend',
+        'attempts': ' attempts',
+        'loading': 'Loading data...',
+        'last_update': 'Last Update',
+        'time_range_all': 'All',
+        'time_range_24h': '24h',
+        'attack_times': 'attacks',
+        'country_region': 'Country',
+        'province_state': 'Province/State',
+        'switch_to_24h': '24h',
+        'switch_to_all': 'All',
+        'switch_to_zh': '中文',
+        'switch_to_en': 'English',
+        'attempt_times': ' attempts'
+    },
+    'zh': {
+        'title': '是谁在敲打我窗',
+        'refresh': '刷新',
+        'total_attempts': '总尝试次数',
+        'unique_ips': '独立IP数量',
+        'attempt_cities': '尝试城市数量',
+        'attempt_countries': '尝试国家数量',
+        'global_distribution': '全球尝试分布图',
+        'ip_ranking': 'IP 地址排行榜',
+        'city_ranking': '城市排行榜',
+        'hour_trend': '24小时趋势',
+        'attempts': '次',
+        'loading': '正在加载数据...',
+        'last_update': '最后更新时间',
+        'time_range_all': '全部',
+        'time_range_24h': '24小时',
+        'attack_times': '次攻击',
+        'country_region': '国家',
+        'province_state': '省/州',
+        'switch_to_24h': '24小时',
+        'switch_to_all': '全部',
+        'switch_to_zh': '中文',
+        'switch_to_en': 'English',
+        'attempt_times': '次尝试'
+    }
+}
+
 # 预定义主要城市的坐标和国家信息
 KNOWN_LOCATIONS = {
     "Moscow": {"lat": 55.7558, "lon": 37.6173, "country": "Russia", "admin_area": "Moscow"},
@@ -27,7 +81,7 @@ KNOWN_LOCATIONS = {
     "New Taipei City": {"lat": 25.062, "lon": 121.457, "country": "China", "admin_area": "Taiwan"},
     "Kaohsiung": {"lat": 22.6148, "lon": 120.3139, "country": "China", "admin_area": "Taiwan"},
     "Tainan": {"lat": 22.9908, "lon": 120.2133, "country": "China", "admin_area": "Taiwan"},
-    "Hsinchu": {"lat": 24.8036, "lon": 120.9686, "country": "China", "admin_area": "Taiwan"}, 
+    "Hsinchu": {"lat": 24.8036, "lon": 120.9686, "country": "China", "admin_area": "Taiwan"},
     "Keelung": {"lat": 25.1283, "lon": 121.7419, "country": "China", "admin_area": "Taiwan"},
     "Chiayi": {"lat": 23.4800, "lon": 120.4491, "country": "China", "admin_area": "Taiwan"},
     "Changhua": {"lat": 24.0734, "lon": 120.5134, "country": "China", "admin_area": "Taiwan"},
@@ -287,7 +341,7 @@ class SSHMonitor(paramiko.ServerInterface):
             print("\n正在关闭监控...")
         finally:
             server.close()
-
+            
 def load_attempts():
     """加载SSH尝试记录"""
     try:
@@ -402,7 +456,7 @@ HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>是谁在敲打我窗</title>
+    <title>{{ t.title }}</title>
     <meta charset="UTF-8">
     <meta http-equiv="refresh" content="30">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
@@ -432,6 +486,19 @@ HTML_TEMPLATE = """
             transition: background-color 0.3s;
         }
         .refresh-btn:hover {
+            background-color: #45a049;
+        }
+        .language-selector {
+            margin-left: 10px;
+            padding: 8px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .language-selector:hover {
             background-color: #45a049;
         }
         .stats-grid {
@@ -598,42 +665,78 @@ HTML_TEMPLATE = """
             display: none;
             z-index: 1000;
         }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .custom-button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-size: 14px;
+            min-width: 100px;
+            text-align: center;
+        }
+        
+        .custom-button:hover {
+            background-color: #45a049;
+        }
+        
+        .custom-button.active {
+            background-color: #357a38;
+        }
     </style>
 </head>
 <body>
-    <div id="loading-indicator">正在加载数据...</div>
+    <div id="loading-indicator">{{ t.loading }}</div>
     <div class="header">
-        <h1>是谁在敲打我窗</h1>
-        <div>
-            <select id="time-range">
-                <option value="all">全部</option>
-                <option value="24h">24小时</option>
-            </select>
-            <button class="refresh-btn" onclick="refreshData()">刷新</button>
+        <h1>{{ t.title }}</h1>
+        <div class="button-group">
+            <button class="custom-button" onclick="refreshData()">{{ t.refresh }}</button>
+            <button class="custom-button" id="timeRangeToggle" onclick="toggleTimeRange()">
+                {% if time_range == 'all' %}
+                    {{ t.switch_to_24h }}
+                {% else %}
+                    {{ t.switch_to_all }}
+                {% endif %}
+            </button>
+            <button class="custom-button" onclick="toggleLanguage()">
+                {% if lang == 'en' %}
+                    {{ t.switch_to_zh }}
+                {% else %}
+                    {{ t.switch_to_en }}
+                {% endif %}
+            </button>
         </div>
     </div>
 
     <div class="stats-grid">
         <div class="stat-card">
-            <h3>总尝试次数</h3>
+            <h3>{{ t.total_attempts }}</h3>
             <div class="stat-number">{{ stats.total_attempts }}</div>
         </div>
         <div class="stat-card">
-            <h3>独立IP数量</h3>
+            <h3>{{ t.unique_ips }}</h3>
             <div class="stat-number">{{ stats.unique_ips }}</div>
         </div>
         <div class="stat-card">
-            <h3>尝试城市数量</h3>
+            <h3>{{ t.attempt_cities }}</h3>
             <div class="stat-number">{{ stats.unique_cities }}</div>
         </div>
         <div class="stat-card">
-            <h3>尝试国家数量</h3>
+            <h3>{{ t.attempt_countries }}</h3>
             <div class="stat-number">{{ stats.unique_countries }}</div>
         </div>
     </div>
 
     <div class="map-container">
-        <h2>全球尝试分布图</h2>
+        <h2>{{ t.global_distribution }}</h2>
         <div class="map-wrapper">
             <div class="map-content">
                 <div id="tooltip" class="tooltip"></div>
@@ -654,7 +757,7 @@ HTML_TEMPLATE = """
 
     <div class="container">
         <div class="column">
-            <h2>IP 地址排行榜</h2>
+            <h2>{{ t.ip_ranking }}</h2>
             <ul class="rank-list">
                 {% for ip, city, count in stats.top_ips %}
                 <li class="rank-item">
@@ -662,13 +765,13 @@ HTML_TEMPLATE = """
                         <span class="rank-number">{{ loop.index }}</span>
                         {{ ip }} ({{ city }})
                     </span>
-                    <span>{{ count }}次</span>
+                    <span>{{ count }}{{ t.attempts }}</span>
                 </li>
                 {% endfor %}
             </ul>
         </div>
         <div class="column">
-            <h2>城市排行榜</h2>
+            <h2>{{ t.city_ranking }}</h2>
             <ul class="rank-list">
                 {% for city, count in stats.top_cities %}
                 <li class="rank-item">
@@ -676,29 +779,35 @@ HTML_TEMPLATE = """
                         <span class="rank-number">{{ loop.index }}</span>
                         {{ city }}
                     </span>
-                    <span>{{ count }}次</span>
+                    <span>{{ count }}{{ t.attempts }}</span>
                 </li>
                 {% endfor %}
             </ul>
         </div>
     </div>
 
+
     <div class="trend-container">
-        <h2>24小时趋势</h2>
+        <h2>{{ t.hour_trend }}</h2>
         <div class="trend-chart">
             <div id="trend-tooltip" class="tooltip"></div>
             <div class="chart-wrapper">
-                {% set max_count = stats.hourly_trend|map(attribute='count')|max %}
+                {% set max_count = namespace(value=0) %}
+                {% for item in stats.hourly_trend %}
+                    {% if item.count > max_count.value %}
+                        {% set max_count.value = item.count %}
+                    {% endif %}
+                {% endfor %}
+                
                 {% set height_factor = 180 %}
                 {% for item in stats.hourly_trend %}
-                    {% if max_count > 0 %}
-                        {% set bar_height = (item.count / max_count * height_factor)|round %}
-                    {% else %}
-                        {% set bar_height = 0 %}
+                    {% set height = 0 %}
+                    {% if max_count.value > 0 %}
+                        {% set height = (item.count / max_count.value * height_factor)|round|int %}
                     {% endif %}
                     <div class="bar-wrapper">
                         <div class="bar" 
-                             style="height: {{ bar_height }}px;"
+                             style="height: {{ height }}px;"
                              data-hour="{{ item.hour }}"
                              data-count="{{ item.count }}">
                         </div>
@@ -710,22 +819,57 @@ HTML_TEMPLATE = """
     </div>
 
     <script>
-        // 获取当前时间范围
+        // Get current time range
         function getCurrentTimeRange() {
             const urlParams = new URLSearchParams(window.location.search);
             return urlParams.get('time_range') || 'all';
         }
 
-        // 显示加载指示器
+        // Get current language
+        function getCurrentLanguage() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('lang') || 'en';  // Default to English
+        }
+
+        // Get button text based on current state
+        function getTimeRangeButtonText(currentTimeRange, lang) {
+            if (currentTimeRange === 'all') {
+                return lang === 'zh' ? '24小时' : '24h';
+            }
+            return lang === 'zh' ? '全部' : 'All';
+        }
+
+        function getLanguageButtonText(currentLang) {
+            return currentLang === 'en' ? '中文' : 'English';
+        }
+
+        // Toggle time range
+        function toggleTimeRange() {
+            const currentTimeRange = getCurrentTimeRange();
+            const newTimeRange = currentTimeRange === 'all' ? '24h' : 'all';
+            const lang = getCurrentLanguage();
+            window.location.href = `/?lang=${lang}&time_range=${newTimeRange}`;
+        }
+
+        // Toggle language
+        function toggleLanguage() {
+            const currentLang = getCurrentLanguage();
+            const newLang = currentLang === 'en' ? 'zh' : 'en';
+            const timeRange = getCurrentTimeRange();
+            window.location.href = `/?lang=${newLang}&time_range=${timeRange}`;
+        }
+
+        // Show loading indicator
         function showLoading() {
             document.getElementById('loading-indicator').style.display = 'block';
         }
 
-        // 隐藏加载指示器
+        // Hide loading indicator
         function hideLoading() {
             document.getElementById('loading-indicator').style.display = 'none';
         }
 
+        // Normalize coordinates for map
         function normalizeCoordinates(lon, lat) {
             const mapWidth = 360;
             const mapHeight = 180;
@@ -734,20 +878,28 @@ HTML_TEMPLATE = """
             return { x, y };
         }
 
-        // 更新地图数据
+        // Refresh all data
+        function refreshData() {
+            const timeRange = getCurrentTimeRange();
+            const lang = getCurrentLanguage();
+            window.location.href = `/?lang=${lang}&time_range=${timeRange}`;
+        }
+
+        // Update map data
         function updateMap() {
             showLoading();
             const tooltip = document.getElementById('tooltip');
             const svg = document.getElementById('world-map');
             const timeRange = getCurrentTimeRange();
+            const lang = getCurrentLanguage();
             
             fetch(`/api/map_data?time_range=${timeRange}`)
                 .then(response => response.json())
                 .then(data => {
-                    // 清除现有点
+                    // Clear existing points
                     document.querySelectorAll('.attack-point').forEach(el => el.remove());
                     
-                    // 添加新的点
+                    // Add new points
                     data.forEach(point => {
                         const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                         const coords = normalizeCoordinates(point.lon, point.lat);
@@ -760,40 +912,42 @@ HTML_TEMPLATE = """
                         circle.setAttribute('class', 'attack-point');
                         
                         circle.addEventListener('mousemove', (e) => {
-                            const rect = svg.getBoundingClientRect();
-                            const scale = rect.width / svg.viewBox.baseVal.width;
+                            const translations = {
+                                'zh': {
+                                    'attack_times': '次攻击',
+                                    'country_region': '国家/地区',
+                                    'province_state': '省/州'
+                                },
+                                'en': {
+                                    'attack_times': 'attacks',
+                                    'country_region': 'Country/Region',
+                                    'province_state': 'Province/State'
+                                }
+                            };
                             
-                            // 获取圆点在页面上的实际位置
-                            const circleX = rect.left + (coords.x * scale);
-                            const circleY = rect.top + (coords.y * scale);
+                            const t = translations[lang];
                             
                             tooltip.style.display = 'block';
                             
-                            // 计算提示框位置
-                            let tooltipX = circleX + (radius * scale) + 10;
-                            let tooltipY = circleY - 10;
-                            
-                            // 检查是否会超出右边界
-                            if (tooltipX + tooltip.offsetWidth > window.innerWidth) {
-                                tooltipX = circleX - tooltip.offsetWidth - 10;
+                            let tooltipText = `${point.city}: ${point.count} ${t.attack_times}`;
+                            if (point.country) {
+                                tooltipText += `\n${t.country_region}: ${point.country}`;
                             }
+                            if (point.admin_area) {
+                                tooltipText += `\n${t.province_state}: ${point.admin_area}`;
+                            }
+                            tooltip.textContent = tooltipText;
                             
-                            // 检查是否会超出上边界
-                            if (tooltipY < 0) {
-                                tooltipY = circleY + 20;
+                            // Position tooltip
+                            let tooltipX = e.pageX + 10;
+                            let tooltipY = e.pageY - 10;
+                            
+                            if (tooltipX + tooltip.offsetWidth > window.innerWidth) {
+                                tooltipX = e.pageX - tooltip.offsetWidth - 10;
                             }
                             
                             tooltip.style.left = tooltipX + 'px';
                             tooltip.style.top = tooltipY + 'px';
-                            
-                            let tooltipText = `${point.city}: ${point.count}次攻击`;
-                            if (point.country) {
-                                tooltipText += `\n国家/地区: ${point.country}`;
-                            }
-                            if (point.admin_area) {
-                                tooltipText += `\n省/州: ${point.admin_area}`;
-                            }
-                            tooltip.textContent = tooltipText;
                         });
                         
                         circle.addEventListener('mouseout', () => {
@@ -810,24 +964,20 @@ HTML_TEMPLATE = """
                 });
         }
 
-        // 刷新所有数据
-        function refreshData() {
-            const timeRange = getCurrentTimeRange();
-            window.location.href = `/?time_range=${timeRange}`;
-        }
-
-        // 初始化页面
+        // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             const timeRange = getCurrentTimeRange();
-            document.getElementById('time-range').value = timeRange;
-
-            // 设置时间范围选择器的事件处理
-            document.getElementById('time-range').addEventListener('change', function() {
-                const selectedTimeRange = this.value;
-                window.location.href = `/?time_range=${selectedTimeRange}`;
-            });
-
-            // 设置趋势图工具提示
+            const lang = getCurrentLanguage();
+            
+            // Update button texts
+            const timeRangeButton = document.getElementById('timeRangeToggle');
+            const languageButton = document.querySelector('.button-group button:last-child');
+            
+            // Set initial button texts to show target states
+            timeRangeButton.textContent = getTimeRangeButtonText(timeRange, lang);
+            languageButton.textContent = getLanguageButtonText(lang);
+            
+            // Initialize trend chart tooltips
             const trendTooltip = document.getElementById('trend-tooltip');
             const bars = document.querySelectorAll('.bar');
             
@@ -835,8 +985,9 @@ HTML_TEMPLATE = """
                 bar.addEventListener('mousemove', (e) => {
                     const hour = bar.getAttribute('data-hour');
                     const count = bar.getAttribute('data-count');
+                    const attemptText = lang === 'zh' ? '次尝试' : 'attempts';
                     
-                    trendTooltip.textContent = `${hour}: ${count}次尝试`;
+                    trendTooltip.textContent = `${hour}: ${count} ${attemptText}`;
                     trendTooltip.style.display = 'block';
                     
                     const rect = bar.getBoundingClientRect();
@@ -852,19 +1003,19 @@ HTML_TEMPLATE = """
                 });
             });
 
-            // 初始更新地图
+            // Initial map update
             updateMap();
         });
 
-        // 定期更新地图
+        // Update map periodically
         setInterval(updateMap, 30000);
         
-        // 响应窗口大小变化
+        // Handle window resize
         window.addEventListener('resize', updateMap);
     </script>
 
     <div style="text-align: center; margin-top: 20px; color: #666; display: flex; justify-content: center; align-items: center; gap: 20px;">
-        <span>最后更新时间: {{ current_time }}</span>
+        <span>{{ t.last_update }}: {{ current_time }}</span>
         <a href="https://github.com/Yorkian/knock" target="_blank" style="color: #666; text-decoration: none; font-size: 24px;">
             <i class="bi bi-github"></i>
         </a>
@@ -875,14 +1026,26 @@ HTML_TEMPLATE = """
 
 @app.route('/')
 def index():
-    """首页路由"""
+    """Homepage route with language support"""
     time_range = request.args.get('time_range', 'all')
+    lang = request.args.get('lang', 'en')
+    if lang not in TRANSLATIONS:
+        lang = 'en'
+    
     stats = get_stats(time_range)
     current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    return render_template_string(HTML_TEMPLATE, stats=stats, current_time=current_time)
+    return render_template_string(
+        HTML_TEMPLATE,
+        stats=stats,
+        current_time=current_time,
+        t=TRANSLATIONS[lang],
+        lang=lang,
+        time_range=time_range
+    )
+
 
 def init_app():
-    """初始化应用程序"""
+    """Initialize application"""
     os.makedirs('static', exist_ok=True)
     
     if not os.path.exists('static/defaultMap.jpg'):
@@ -891,25 +1054,25 @@ def init_app():
     GeoData()
 
 def main():
-    """主程序入口"""
-    # 初始化SSH监控器
+    """Main program entry"""
+    # Initialize SSH monitor
     ssh_monitor = SSHMonitor(port=22)
     
-    # 启动SSH监控器线程
+    # Start SSH monitor thread
     monitor_thread = threading.Thread(target=ssh_monitor.start)
     monitor_thread.daemon = True
     monitor_thread.start()
     
-    # 初始化Flask应用
+    # Initialize Flask application
     init_app()
     
-    # 启动Web服务器
+    # Start web server
     try:
         app.run(host='0.0.0.0', port=5000)
     except KeyboardInterrupt:
-        print("\n正在关闭服务...")
+        print("\nShutting down service...")
     except Exception as e:
-        print(f"服务器运行出错: {e}")
+        print(f"Server error: {e}")
 
 if __name__ == '__main__':
     main()
