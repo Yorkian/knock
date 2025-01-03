@@ -103,6 +103,8 @@ class GeoData:
         self.geo_file = Path('geo_data.json')
         self.geo_data = self._load_geo_data()
         self.verify_cache()
+        # 添加缓存命中记录集合
+        self.cache_hits = set()
 
     def _load_geo_data(self):
         """加载缓存的地理位置数据"""
@@ -147,12 +149,17 @@ class GeoData:
             
     def get_city_location(self, city):
         """获取城市的地理位置"""
+        # 对于同一个实例，每个城市只打印一次缓存命中信息
         if city in KNOWN_LOCATIONS:
-            print(f"Using predefined location for {city}")
+            if city not in self.cache_hits:
+                print(f"Using predefined location for {city}")
+                self.cache_hits.add(city)
             return KNOWN_LOCATIONS[city]
             
         if city in self.geo_data:
-            print(f"Using cached data for {city}")
+            if city not in self.cache_hits:
+                print(f"Using cached data for {city}")
+                self.cache_hits.add(city)
             return self.geo_data[city]
             
         try:
@@ -220,18 +227,32 @@ class SSHMonitor(paramiko.ServerInterface):
         
         # 生成服务器密钥
         self.key = paramiko.RSAKey.generate(2048)
+        
+        # 添加连接计数器
+        self.connection_count = 0
+        self.last_cleanup = time.time()
 
-    def _load_json(self, file_path: Path, default: Any) -> Any:
-        """加载JSON文件，如果文件不存在则返回默认值"""
-        if file_path.exists():
-            with open(file_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        return default
+    def _load_json(self, file_path: Path, default_value: Any) -> Any:
+        """加载JSON文件，如果文件不存在或无效则返回默认值"""
+        try:
+            if file_path.exists():
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            return default_value
+        except json.JSONDecodeError as e:
+            print(f"Error loading {file_path}: {e}")
+            return default_value
+        except Exception as e:
+            print(f"Unexpected error loading {file_path}: {e}")
+            return default_value
 
     def _save_json(self, file_path: Path, data: Any) -> None:
         """保存数据到JSON文件"""
-        with open(file_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        try:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"Error saving to {file_path}: {e}")
 
     def _get_location_data(self, ip: str) -> Optional[Dict]:
         """获取IP地址的地理位置信息"""
@@ -286,7 +307,7 @@ class SSHMonitor(paramiko.ServerInterface):
         self.attempts.append(attempt)
         self._save_json(self.ssh_log_file, self.attempts)
         
-        print(f"记录登录尝试 - IP: {self.client_ip}, 城市: {location_data['city']}")
+        print(f"Trying - IP: {self.client_ip}, City: {location_data['city']}")
         return paramiko.AUTH_FAILED
 
     def get_allowed_auths(self, username: str) -> str:
@@ -294,39 +315,78 @@ class SSHMonitor(paramiko.ServerInterface):
         return 'password'
 
     def _handle_connection(self, client_socket: socket.socket, address: tuple) -> None:
-        """处理单个连接"""
-        try:
-            self.client_ip = address[0]
-            self.client_port = address[1]
-            
-            transport = paramiko.Transport(client_socket)
-            transport.add_server_key(self.key)
-            transport.start_server(server=self)
-            
-            channel = transport.accept(20)
-            if channel is not None:
-                channel.close()
-
-        except Exception as e:
-            print(f"处理连接时出错: {e}")
-        finally:
+            """处理单个连接"""
+            transport = None
             try:
-                transport.close()
-            except:
-                pass
-            client_socket.close()
+                self.client_ip = address[0]
+                self.client_port = address[1]
+                
+                # 设置客户端 socket 的超时时间
+                client_socket.settimeout(10)
+                
+                transport = paramiko.Transport(client_socket)
+                transport.local_version = "SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.1"
+                transport.add_server_key(self.key)
+                
+                try:
+                    # 移除不支持的 timeout 参数
+                    transport.start_server(server=self)
+                except paramiko.SSHException as e:
+                    if "Error reading SSH protocol banner" in str(e):
+                        print(f"Client {self.client_ip} failed to send SSH banner")
+                        return
+                    raise
+                    
+                # 设置通道接受的超时时间
+                channel = transport.accept(timeout=5)
+                if channel is not None:
+                    channel.close()
+
+            except socket.timeout:
+                print(f"Connection from {self.client_ip} timed out")
+            except ConnectionResetError:
+                print(f"Connection reset by {self.client_ip}")
+            except Exception as e:
+                error_type = type(e).__name__
+                if error_type not in ['SSHException', 'socket.timeout', 'ConnectionResetError']:
+                    print(f"Unexpected error handling connection from {self.client_ip}: {error_type}: {str(e)}")
+            finally:
+                if transport:
+                    try:
+                        transport.close()
+                    except:
+                        pass
+                try:
+                    client_socket.close()
+                except:
+                    pass
+                
+                self.connection_count += 1
+                
+                if self.connection_count % 1000 == 0:
+                    self._cleanup()
+
+    def _cleanup(self):
+        """定期清理和维护"""
+        current_time = time.time()
+        if current_time - self.last_cleanup > 3600:
+            import gc
+            gc.collect()
+            self.last_cleanup = current_time
 
     def start(self) -> None:
         """启动SSH监控服务器"""
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server.settimeout(1)
+        
         server.bind((self.host, self.port))
         server.listen(5)
         
         print(f"开始监控SSH尝试，监听地址 {self.host}:{self.port}")
         
-        try:
-            while True:
+        while True:
+            try:
                 client, address = server.accept()
                 thread = threading.Thread(
                     target=self._handle_connection,
@@ -337,10 +397,16 @@ class SSHMonitor(paramiko.ServerInterface):
                 
                 time.sleep(0.1)
                 
-        except KeyboardInterrupt:
-            print("\n正在关闭监控...")
-        finally:
-            server.close()
+            except socket.timeout:
+                continue
+            except KeyboardInterrupt:
+                print("\n正在关闭监控...")
+                break
+            except Exception as e:
+                print(f"接受连接时出错: {e}")
+                time.sleep(1)
+                
+        server.close()
             
 def load_attempts():
     """加载SSH尝试记录"""
@@ -354,32 +420,38 @@ def get_stats(time_range='all'):
     """获取统计数据"""
     attempts = load_attempts()
     
+    # 如果时间范围是24小时，过滤数据
     if time_range == '24h':
         now = datetime.datetime.now()
         twenty_four_hours_ago = now - timedelta(hours=24)
         attempts = [attempt for attempt in attempts if datetime.datetime.fromisoformat(attempt['timestamp']) >= twenty_four_hours_ago]
     
+    # 在循环外创建单个 GeoData 实例
+    geo = GeoData()
+    
+    # 初始化计数器
     ip_counts = Counter()
     city_counts = Counter()
-    country_counts = Counter()  # 新增国家计数器
+    country_counts = Counter()
     hourly_counts = Counter()
     now = datetime.datetime.now()
     twenty_four_hours_ago = now - timedelta(hours=24)
     
     ip_city_map = {}
     
+    # 处理每条记录
     for attempt in attempts:
         ip = attempt['ip']
         city = attempt.get('city', 'Unknown')
         ip_city_map[ip] = city
         
-        # 获取国家信息并计数
-        geo = GeoData()
+        # 获取地理位置信息
         location = geo.get_city_location(city)
         if location and 'country' in location:
             country = location['country']
             country_counts[country] += 1
             
+        # 处理时间趋势数据
         try:
             timestamp = datetime.datetime.fromisoformat(attempt['timestamp'])
             if timestamp >= twenty_four_hours_ago:
@@ -391,9 +463,12 @@ def get_stats(time_range='all'):
         ip_counts[ip] += 1
         city_counts[city] += 1
 
+    # 获取排名前10的IP
     top_ips = [(ip, ip_city_map[ip], count) for ip, count in ip_counts.most_common(10)]
+    # 获取排名前10的城市
     top_cities = city_counts.most_common(10)
     
+    # 生成24小时趋势数据
     hours = []
     current_hour = now.replace(minute=0, second=0, microsecond=0)
     for i in range(24):
@@ -405,6 +480,7 @@ def get_stats(time_range='all'):
         })
     hours.reverse()
 
+    # 返回统计结果
     return {
         'top_ips': top_ips,
         'top_cities': top_cities,
@@ -412,7 +488,7 @@ def get_stats(time_range='all'):
         'total_attempts': len(attempts),
         'unique_ips': len(ip_counts),
         'unique_cities': len(city_counts),
-        'unique_countries': len(country_counts)  # 新增返回国家数量
+        'unique_countries': len(country_counts)
     }
 
 @app.route('/api/map_data')
