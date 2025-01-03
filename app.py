@@ -323,14 +323,20 @@ class SSHMonitor(paramiko.ServerInterface):
             
             client_socket.settimeout(10)
             
-            # 在创建 Transport 之前先尝试读取一些数据
+            # 检查是否是SSH连接
             try:
-                # 尝试读取1字节数据来检查连接是否立即关闭
-                client_socket.recv(1, socket.MSG_PEEK)
+                initial_data = client_socket.recv(4, socket.MSG_PEEK)
+                # SSH连接通常以"SSH-"开头
+                if not initial_data.startswith(b'SSH-'):
+                    print(f"[{datetime.datetime.now()}] Non-SSH connection attempt from {self.client_ip}:{self.client_port}")
+                    return
             except (socket.timeout, ConnectionResetError, EOFError):
                 print(f"[{datetime.datetime.now()}] Quick disconnect from {self.client_ip}:{self.client_port}")
                 return
-            
+            except Exception as e:
+                print(f"[{datetime.datetime.now()}] Error checking connection type: {e}")
+                return
+                
             transport = paramiko.Transport(client_socket)
             transport.local_version = "SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.1"
             transport.add_server_key(self.key)
@@ -341,26 +347,15 @@ class SSHMonitor(paramiko.ServerInterface):
                 if channel is not None:
                     channel.close()
             except paramiko.SSHException as e:
-                error_msg = str(e)
-                if "Error reading SSH protocol banner" in error_msg:
-                    # 检查具体的内部错误
-                    if "EOFError" in error_msg:
-                        print(f"[{datetime.datetime.now()}] Client {self.client_ip}:{self.client_port} - Disconnected before banner exchange")
-                    else:
-                        print(f"[{datetime.datetime.now()}] Client {self.client_ip}:{self.client_port} - Failed to send SSH banner")
-                    return
-                print(f"[{datetime.datetime.now()}] Client {self.client_ip}:{self.client_port} - SSH Exception: {error_msg}")
+                # 不再打印详细的堆栈跟踪
+                print(f"[{datetime.datetime.now()}] SSH negotiation failed with {self.client_ip}:{self.client_port} - {str(e)}")
+                return
+            except Exception as e:
+                print(f"[{datetime.datetime.now()}] Unexpected error in SSH negotiation with {self.client_ip}:{self.client_port}: {str(e)}")
                 return
 
-        except socket.timeout:
-            print(f"[{datetime.datetime.now()}] Connection from {self.client_ip}:{self.client_port} timed out")
-        except ConnectionResetError:
-            print(f"[{datetime.datetime.now()}] Connection reset by {self.client_ip}:{self.client_port}")
-        except EOFError:
-            print(f"[{datetime.datetime.now()}] Connection closed by {self.client_ip}:{self.client_port}")
         except Exception as e:
-            error_type = type(e).__name__
-            print(f"[{datetime.datetime.now()}] Unexpected error from {self.client_ip}:{self.client_port}: {error_type}: {str(e)}")
+            print(f"[{datetime.datetime.now()}] Connection handler error with {self.client_ip}:{self.client_port}: {str(e)}")
         finally:
             if transport:
                 try:
