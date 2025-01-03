@@ -307,7 +307,7 @@ class SSHMonitor(paramiko.ServerInterface):
         self.attempts.append(attempt)
         self._save_json(self.ssh_log_file, self.attempts)
         
-        print(f"Trying - IP: {self.client_ip}, City: {location_data['city']}")
+        print(f"Knocking - IP: {self.client_ip}, City: {location_data['city']}")
         return paramiko.AUTH_FAILED
 
     def get_allowed_auths(self, username: str) -> str:
@@ -315,56 +315,66 @@ class SSHMonitor(paramiko.ServerInterface):
         return 'password'
 
     def _handle_connection(self, client_socket: socket.socket, address: tuple) -> None:
-            """处理单个连接"""
-            transport = None
+        """处理单个连接"""
+        transport = None
+        try:
+            self.client_ip = address[0]
+            self.client_port = address[1]
+            
+            client_socket.settimeout(10)
+            
+            # 在创建 Transport 之前先尝试读取一些数据
             try:
-                self.client_ip = address[0]
-                self.client_port = address[1]
-                
-                # 设置客户端 socket 的超时时间
-                client_socket.settimeout(10)
-                
-                transport = paramiko.Transport(client_socket)
-                transport.local_version = "SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.1"
-                transport.add_server_key(self.key)
-                
-                try:
-                    # 移除不支持的 timeout 参数
-                    transport.start_server(server=self)
-                except paramiko.SSHException as e:
-                    if "Error reading SSH protocol banner" in str(e):
-                        print(f"Client {self.client_ip} failed to send SSH banner")
-                        return
-                    raise
-                    
-                # 设置通道接受的超时时间
-                channel = transport.accept(timeout=5)
+                # 尝试读取1字节数据来检查连接是否立即关闭
+                client_socket.recv(1, socket.MSG_PEEK)
+            except (socket.timeout, ConnectionResetError, EOFError):
+                print(f"[{datetime.datetime.now()}] Quick disconnect from {self.client_ip}:{self.client_port}")
+                return
+            
+            transport = paramiko.Transport(client_socket)
+            transport.local_version = "SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.1"
+            transport.add_server_key(self.key)
+            
+            try:
+                transport.start_server(server=self)
+                channel = transport.accept(timeout=10)
                 if channel is not None:
                     channel.close()
+            except paramiko.SSHException as e:
+                error_msg = str(e)
+                if "Error reading SSH protocol banner" in error_msg:
+                    # 检查具体的内部错误
+                    if "EOFError" in error_msg:
+                        print(f"[{datetime.datetime.now()}] Client {self.client_ip}:{self.client_port} - Disconnected before banner exchange")
+                    else:
+                        print(f"[{datetime.datetime.now()}] Client {self.client_ip}:{self.client_port} - Failed to send SSH banner")
+                    return
+                print(f"[{datetime.datetime.now()}] Client {self.client_ip}:{self.client_port} - SSH Exception: {error_msg}")
+                return
 
-            except socket.timeout:
-                print(f"Connection from {self.client_ip} timed out")
-            except ConnectionResetError:
-                print(f"Connection reset by {self.client_ip}")
-            except Exception as e:
-                error_type = type(e).__name__
-                if error_type not in ['SSHException', 'socket.timeout', 'ConnectionResetError']:
-                    print(f"Unexpected error handling connection from {self.client_ip}: {error_type}: {str(e)}")
-            finally:
-                if transport:
-                    try:
-                        transport.close()
-                    except:
-                        pass
+        except socket.timeout:
+            print(f"[{datetime.datetime.now()}] Connection from {self.client_ip}:{self.client_port} timed out")
+        except ConnectionResetError:
+            print(f"[{datetime.datetime.now()}] Connection reset by {self.client_ip}:{self.client_port}")
+        except EOFError:
+            print(f"[{datetime.datetime.now()}] Connection closed by {self.client_ip}:{self.client_port}")
+        except Exception as e:
+            error_type = type(e).__name__
+            print(f"[{datetime.datetime.now()}] Unexpected error from {self.client_ip}:{self.client_port}: {error_type}: {str(e)}")
+        finally:
+            if transport:
                 try:
-                    client_socket.close()
+                    transport.close()
                 except:
                     pass
-                
-                self.connection_count += 1
-                
-                if self.connection_count % 1000 == 0:
-                    self._cleanup()
+            try:
+                client_socket.close()
+            except:
+                pass
+            
+            self.connection_count += 1
+            if self.connection_count % 1000 == 0:
+                self._cleanup()
 
     def _cleanup(self):
         """定期清理和维护"""
@@ -378,36 +388,45 @@ class SSHMonitor(paramiko.ServerInterface):
         """启动SSH监控服务器"""
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server.settimeout(1)
+        # TCP保活选项
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        server.settimeout(5)
         
-        server.bind((self.host, self.port))
-        server.listen(5)
-        
-        print(f"开始监控SSH尝试，监听地址 {self.host}:{self.port}")
-        
-        while True:
-            try:
-                client, address = server.accept()
-                thread = threading.Thread(
-                    target=self._handle_connection,
-                    args=(client, address)
-                )
-                thread.daemon = True
-                thread.start()
-                
-                time.sleep(0.1)
-                
-            except socket.timeout:
-                continue
-            except KeyboardInterrupt:
-                print("\n正在关闭监控...")
-                break
-            except Exception as e:
-                print(f"接受连接时出错: {e}")
-                time.sleep(1)
-                
-        server.close()
+        try:
+            server.bind((self.host, self.port))
+            server.listen(10)
             
+            print(f"开始监控SSH尝试，监听地址 {self.host}:{self.port}")
+            
+            while True:
+                try:
+                    client, address = server.accept()
+                    # 为客户端socket设置TCP保活选项
+                    client.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                    thread = threading.Thread(
+                        target=self._handle_connection,
+                        args=(client, address)
+                    )
+                    thread.daemon = True
+                    thread.start()
+                    
+                    time.sleep(0.05)
+                    
+                except socket.timeout:
+                    continue
+                except KeyboardInterrupt:
+                    print("\n正在关闭监控...")
+                    break
+                except Exception as e:
+                    print(f"[{datetime.datetime.now()}] 接受连接时出错: {e}")
+                    time.sleep(1)
+                    
+        finally:
+            try:
+                server.close()
+            except:
+                pass
+                
 def load_attempts():
     """加载SSH尝试记录"""
     try:
