@@ -52,18 +52,12 @@ A real-time SSH login attempt monitoring and visualization system that provides 
    pip install flask requests paramiko
    ```
 
-3. Prepare the environment:
-   ```bash
-   mkdir static
-   # Place your world map background image as static/defaultMap.jpg
-   ```
-
-4. Run the application:
+3. Run the application:
    ```bash
    python3 app.py
    ```
 
-5. Access the dashboard:
+4. Access the dashboard:
    ```
    http://localhost:5000
    ```
@@ -163,18 +157,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
    pip install flask requests paramiko
    ```
 
-3. 准备环境：
-   ```bash
-   mkdir static
-   # 将世界地图背景图片放置为 static/defaultMap.jpg
-   ```
-
-4. 运行应用：
+3. 运行应用：
    ```bash
    python3 app.py
    ```
 
-5. 访问仪表板：
+4. 访问仪表板：
    ```
    http://localhost:5000
    ```
