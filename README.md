@@ -104,10 +104,10 @@ A real-time SSH login attempt monitoring and visualization system that provides 
 
 - The application listens on port 22 for SSH attempts
 - Web interface runs on port 5000 by default
-- Data is stored in JSON format:
-  - `ssh_attempts.json`: Login attempt records
-  - `geo_data.json`: Geographic location cache
-  - `city_data.json`: City information cache
+- Data is stored in CSV format:
+  - `ssh_attempts.csv`: Login attempt records
+  - `geo_data.csv`: Geographic location cache
+  - `city_data.csv`: City information cache
 
 ### License
 
@@ -206,10 +206,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - 应用监听22端口获取SSH尝试
 - Web界面默认运行在5000端口
-- 数据以JSON格式存储：
-  - `ssh_attempts.json`: 登录尝试记录
-  - `geo_data.json`: 地理位置缓存
-  - `city_data.json`: 城市信息缓存
+- 数据以CSV格式存储：
+  - `ssh_attempts.csv`: 登录尝试记录
+  - `geo_data.csv`: 地理位置缓存
+  - `city_data.csv`: 城市信息缓存
 
 ### 开源协议
 
