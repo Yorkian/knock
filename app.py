@@ -1,12 +1,13 @@
 import socket
 import threading
 import datetime
-import json
+import csv
+import json  # Still needed for API responses
 from pathlib import Path
 import paramiko
 import requests
 import time
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from flask import Flask, render_template_string, jsonify, request
 from collections import Counter
 from datetime import timedelta
@@ -100,22 +101,56 @@ COUNTRY_INFO = {
 
 class GeoData:
     def __init__(self):
-        self.geo_file = Path('geo_data.json')
+        self.geo_file = Path('geo_data.csv')
         self.geo_data = self._load_geo_data()
         self.verify_cache()
         # Add cache hit record collection
         self.cache_hits = set()
 
     def _load_geo_data(self):
-        """Load cached geographical location data"""
+        """Load cached geographical location data from CSV"""
+        geo_data = {}
         if self.geo_file.exists():
             try:
-                with open(self.geo_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            except json.JSONDecodeError:
-                print("Invalid JSON in geo_data.json, creating new file")
+                with open(self.geo_file, 'r', encoding='utf-8', newline='') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        # Convert lat/lon to float
+                        city = row['city']
+                        geo_data[city] = {
+                            'lat': float(row['lat']),
+                            'lon': float(row['lon']),
+                            'country': row['country'],
+                            'admin_area': row['admin_area'],
+                            'last_updated': row['last_updated']
+                        }
+                return geo_data
+            except Exception as e:
+                print(f"Error loading geo_data.csv: {e}")
                 return {}
         return {}
+
+    def _save_geo_data(self):
+        """Save geographical location data to CSV file"""
+        try:
+            fieldnames = ['city', 'lat', 'lon', 'country', 'admin_area', 'last_updated']
+            
+            with open(self.geo_file, 'w', encoding='utf-8', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                
+                for city, data in self.geo_data.items():
+                    row = {
+                        'city': city,
+                        'lat': data['lat'],
+                        'lon': data['lon'],
+                        'country': data['country'],
+                        'admin_area': data['admin_area'],
+                        'last_updated': data['last_updated']
+                    }
+                    writer.writerow(row)
+        except Exception as e:
+            print(f"Error saving geo data: {e}")
 
     def verify_cache(self):
         """Verify the accuracy of the cached data"""
@@ -138,14 +173,6 @@ class GeoData:
             return location.get('country', '') == COUNTRY_INFO[city]
             
         return True
-        
-    def _save_geo_data(self):
-        """Save geographical location data to file"""
-        try:
-            with open(self.geo_file, 'w', encoding='utf-8') as f:
-                json.dump(self.geo_data, f, indent=2, ensure_ascii=False)
-        except Exception as e:
-            print(f"Error saving geo data: {e}")
             
     def get_city_location(self, city):
         """Get the geographical location of the city"""
@@ -216,14 +243,12 @@ class SSHMonitor(paramiko.ServerInterface):
     def __init__(self, host='0.0.0.0', port=22):
         self.host = host
         self.port = port
-        self.ssh_log_file = Path('ssh_attempts.json')
-        self.city_data_file = Path('city_data.json')
-        self.geo_data_file = Path('geo_data.json')
+        self.ssh_log_file = Path('ssh_attempts.csv')
+        self.city_data_file = Path('city_data.csv')
         
         # Initialize or load data files
-        self.attempts = self._load_json(self.ssh_log_file, [])
-        self.city_data = self._load_json(self.city_data_file, {})
-        self.geo_data = self._load_json(self.geo_data_file, {})
+        self.attempts = self._load_attempts()
+        self.city_data = self._load_city_data()
         
         # Generate server keys
         self.key = paramiko.RSAKey.generate(2048)
@@ -232,27 +257,60 @@ class SSHMonitor(paramiko.ServerInterface):
         self.connection_count = 0
         self.last_cleanup = time.time()
 
-    def _load_json(self, file_path: Path, default_value: Any) -> Any:
-        """Load the JSON file, and return the default value if the file does not exist or is invalid."""
+    def _load_attempts(self) -> List[Dict]:
+        """Load SSH attempt logs from CSV"""
+        attempts = []
+        if self.ssh_log_file.exists():
+            try:
+                with open(self.ssh_log_file, 'r', encoding='utf-8', newline='') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        attempts.append(row)
+                return attempts
+            except Exception as e:
+                print(f"Error loading ssh_attempts.csv: {e}")
+                return []
+        return []
+    
+    def _save_attempts(self) -> None:
+        """Save SSH attempt logs to CSV"""
         try:
-            if file_path.exists():
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            return default_value
-        except json.JSONDecodeError as e:
-            print(f"Error loading {file_path}: {e}")
-            return default_value
+            # Get all field names from attempts
+            fieldnames = ['timestamp', 'ip', 'password', 'city']
+            
+            with open(self.ssh_log_file, 'w', encoding='utf-8', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                for attempt in self.attempts:
+                    writer.writerow(attempt)
         except Exception as e:
-            print(f"Unexpected error loading {file_path}: {e}")
-            return default_value
-
-    def _save_json(self, file_path: Path, data: Any) -> None:
-        """Save data to JSON file"""
+            print(f"Error saving attempts data: {e}")
+    
+    def _load_city_data(self) -> Dict[str, str]:
+        """Load IP to city mapping from CSV"""
+        city_data = {}
+        if self.city_data_file.exists():
+            try:
+                with open(self.city_data_file, 'r', encoding='utf-8', newline='') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        city_data[row['ip']] = row['city']
+                return city_data
+            except Exception as e:
+                print(f"Error loading city_data.csv: {e}")
+                return {}
+        return {}
+    
+    def _save_city_data(self) -> None:
+        """Save IP to city mapping to CSV"""
         try:
-            with open(file_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
+            with open(self.city_data_file, 'w', encoding='utf-8', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=['ip', 'city'])
+                writer.writeheader()
+                for ip, city in self.city_data.items():
+                    writer.writerow({'ip': ip, 'city': city})
         except Exception as e:
-            print(f"Error saving to {file_path}: {e}")
+            print(f"Error saving city data: {e}")
 
     def _get_location_data(self, ip: str) -> Optional[Dict]:
         """Get the geographical location information of the IP address"""
@@ -269,17 +327,19 @@ class SSHMonitor(paramiko.ServerInterface):
                 return None
 
             self.city_data[ip] = data["city"]
-            self._save_json(self.city_data_file, self.city_data)
+            self._save_city_data()
 
-            if data["city"] not in self.geo_data:
-                self.geo_data[data["city"]] = {
+            # Create a GeoData instance to save geo data
+            geo = GeoData()
+            if data["city"] not in geo.geo_data:
+                geo.geo_data[data["city"]] = {
                     "lat": data["lat"],
                     "lon": data["lon"],
                     "country": data["country"],
                     "admin_area": data["regionName"],
                     "last_updated": datetime.datetime.now().isoformat()
                 }
-                self._save_json(self.geo_data_file, self.geo_data)
+                geo._save_geo_data()
 
             return {
                 "city": data["city"]
@@ -305,7 +365,7 @@ class SSHMonitor(paramiko.ServerInterface):
         }
         
         self.attempts.append(attempt)
-        self._save_json(self.ssh_log_file, self.attempts)
+        self._save_attempts()
         
         print(f"Knocking - IP: {self.client_ip}, City: {location_data['city']}")
         return paramiko.AUTH_FAILED
@@ -421,13 +481,17 @@ class SSHMonitor(paramiko.ServerInterface):
                 server.close()
             except:
                 pass
-                
+
 def load_attempts():
-    """Load SSH attempt logs"""
+    """Load SSH attempt logs from CSV"""
+    attempts = []
     try:
-        with open('ssh_attempts.json', 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
+        with open('ssh_attempts.csv', 'r', encoding='utf-8', newline='') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                attempts.append(row)
+        return attempts
+    except (FileNotFoundError, csv.Error):
         return []
 
 def get_stats(time_range='all'):
